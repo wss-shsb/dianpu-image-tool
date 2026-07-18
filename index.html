@@ -1,0 +1,2048 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>电商图片尺寸适配工具 - 一键生成合规主图</title>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;background:#f5f7fa;color:#333;line-height:1.6}
+
+/* 顶部导航 */
+.header{background:linear-gradient(135deg,#1677ff 0%,#4096ff 100%);color:#fff;padding:16px 0;box-shadow:0 2px 8px rgba(22,119,255,0.15);position:sticky;top:0;z-index:100}
+.header-inner{max-width:1200px;margin:0 auto;padding:0 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{font-size:26px}
+.logo-text{font-size:20px;font-weight:700}
+.slogan{font-size:13px;opacity:.9}
+
+/* 顶部右侧用户区 */
+.user-area{display:flex;align-items:center;gap:10px}
+.user-badge{display:flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);border-radius:20px;font-size:12px;cursor:default;transition:all .2s}
+.user-badge.free{background:rgba(255,255,255,0.15)}
+.user-badge.vip{background:linear-gradient(135deg,#ffd700,#ffa500);color:#5a3a00;border-color:rgba(255,215,0,0.5);font-weight:600}
+.user-badge .dot{width:6px;height:6px;border-radius:50%;background:#52c41a}
+.user-badge.free .dot{background:#bbb}
+.user-badge .expire{font-size:11px;opacity:.85}
+.user-badge .renew-tip{color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;background:#ff4d4f;animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.5}}
+.activate-btn{padding:6px 14px;background:#fff;color:#1677ff;border:none;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.activate-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.15)}
+
+/* 主体容器 */
+.container{max-width:1200px;margin:24px auto;padding:0 20px}
+.main-layout{display:grid;grid-template-columns:380px 1fr;gap:20px}
+
+/* 卡片样式 */
+.card{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.06);padding:20px;margin-bottom:20px}
+.card-title{font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;color:#1a1a1a}
+.card-title .icon{font-size:18px}
+.lock-tag{display:inline-block;font-size:10px;padding:2px 6px;background:#fff7e6;color:#d48806;border-radius:4px;margin-left:4px;border:1px solid #ffe58f}
+
+/* 平台Tab */
+.platform-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.platform-tab{padding:8px 14px;border:1px solid #e0e0e0;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s;background:#fff;position:relative}
+.platform-tab:hover{border-color:#1677ff;color:#1677ff}
+.platform-tab.active{background:#1677ff;color:#fff;border-color:#1677ff}
+.platform-tab.locked{opacity:.6}
+.platform-tab .lock-icon{font-size:11px;margin-left:2px}
+
+/* 场景按钮组 */
+.scene-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.scene-btn{padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s;background:#fff;text-align:left;position:relative}
+.scene-btn:hover{border-color:#1677ff;background:#e6f4ff}
+.scene-btn.active{background:#e6f4ff;border-color:#1677ff;color:#1677ff;font-weight:500}
+.scene-btn.locked{opacity:.55}
+.scene-btn.locked:hover{border-color:#faad14;background:#fffbe6}
+.scene-btn .size{font-size:11px;color:#999;margin-top:2px}
+.scene-btn.active .size{color:#1677ff;opacity:.8}
+.scene-btn .lock-flag{position:absolute;top:4px;right:6px;font-size:10px;color:#faad14}
+
+/* 自定义尺寸 */
+.custom-size{margin-top:12px;padding-top:12px;border-top:1px dashed #e0e0e0;display:none}
+.custom-size.show{display:block}
+.custom-size .lock-hint{font-size:12px;color:#faad14;margin-bottom:8px}
+.custom-inputs{display:flex;gap:8px;align-items:center}
+.custom-inputs input{width:100%;padding:8px 10px;border:1px solid #e0e0e0;border-radius:6px;font-size:13px;outline:none;transition:border-color .2s;background:#fff}
+.custom-inputs input:disabled{background:#f5f5f5;color:#bbb}
+.custom-inputs input:focus{border-color:#1677ff}
+.custom-inputs span{color:#999;font-size:14px}
+.save-custom-btn{margin-top:10px;width:100%;padding:8px;border:1px dashed #1677ff;background:#f0f7ff;color:#1677ff;border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s}
+.save-custom-btn:hover{background:#e6f4ff}
+.saved-custom-list{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.saved-custom-item{padding:4px 10px;background:#f0f7ff;border:1px solid #91caff;border-radius:14px;font-size:12px;color:#1677ff;cursor:pointer;display:flex;align-items:center;gap:4px}
+.saved-custom-item .del{font-size:10px;opacity:.6}
+.saved-custom-item .del:hover{opacity:1}
+
+/* 导出设置 */
+.export-setting{margin-bottom:14px}
+.export-setting label{display:block;font-size:13px;color:#666;margin-bottom:6px}
+.export-setting select,.export-setting input[type=range]{width:100%;padding:8px 10px;border:1px solid #e0e0e0;border-radius:6px;font-size:13px;outline:none;background:#fff}
+.quality-row{display:flex;align-items:center;gap:10px}
+.quality-row input[type=range]{flex:1}
+.quality-value{font-size:13px;color:#1677ff;font-weight:500;min-width:40px;text-align:right}
+.quality-tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:8px}
+.quality-tag.free{background:#fff1f0;color:#ff4d4f;border:1px solid #ffa39e}
+.quality-tag.hd{background:#f6ffed;color:#52c41a;border:1px solid #b7eb8f}
+.quality-tag.lossless{background:#f0f7ff;color:#1677ff;border:1px solid #91caff}
+.size-estimate{font-size:12px;color:#999;margin-top:4px}
+.size-estimate .warn{color:#ff4d4f}
+.upgrade-inline{display:inline-block;font-size:12px;color:#1677ff;cursor:pointer;text-decoration:underline;margin-left:8px}
+.upgrade-inline:hover{color:#4096ff}
+
+/* 上传区域 */
+.upload-area{border:2px dashed #d9d9d9;border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .3s;background:#fafafa;min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.upload-area:hover,.upload-area.dragover{border-color:#1677ff;background:#e6f4ff}
+.upload-icon{font-size:48px;margin-bottom:12px}
+.upload-text{font-size:15px;color:#666;margin-bottom:6px}
+.upload-hint{font-size:12px;color:#999}
+.upload-limit{font-size:11px;color:#1677ff;margin-top:8px;background:#e6f4ff;padding:2px 8px;border-radius:10px}
+.upload-area input[type=file]{display:none}
+
+/* AI居中按钮 */
+.ai-center-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.ai-btn{padding:8px 16px;background:linear-gradient(135deg,#722ed1,#eb2f96);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px}
+.ai-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(114,46,209,0.3)}
+.ai-btn:disabled{background:#d9d9d9;color:#999;cursor:not-allowed}
+.recenter-btn{padding:8px 16px;background:#fff;color:#666;border:1px solid #e0e0e0;border-radius:8px;font-size:13px;cursor:pointer;transition:all .2s}
+.recenter-btn:hover{color:#1677ff;border-color:#1677ff}
+
+/* 裁剪预览区 */
+.crop-container{position:relative;display:none;background:#fafafa;border-radius:12px;overflow:hidden;margin-bottom:16px}
+.crop-container.show{display:block}
+.crop-canvas-wrap{position:relative;display:inline-block;width:100%;text-align:center;background:repeating-conic-gradient(#f0f0f0 0% 25%,#fff 0% 50%) 50% / 20px 20px}
+#cropCanvas{display:block;max-width:100%;max-height:500px;margin:0 auto;cursor:move;touch-action:none}
+.crop-info-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:#fff;border-top:1px solid #f0f0f0;font-size:13px;color:#666;flex-wrap:wrap;gap:8px}
+.crop-info-bar .info-item{display:flex;align-items:center;gap:4px}
+.crop-info-bar .info-val{color:#1677ff;font-weight:500}
+.compare-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#666}
+.compare-toggle input{cursor:pointer}
+
+/* 批量图片列表 */
+.batch-list{display:none;margin-bottom:16px;max-height:120px;overflow-y:auto;padding:8px 0}
+.batch-list.show{display:block}
+.batch-list-title{font-size:13px;color:#666;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.batch-list-title .count{color:#1677ff;font-weight:500}
+.batch-thumbs{display:flex;gap:8px;flex-wrap:wrap}
+.batch-thumb{width:60px;height:60px;border-radius:6px;overflow:hidden;border:2px solid transparent;cursor:pointer;position:relative;transition:all .2s}
+.batch-thumb:hover{border-color:#91caff}
+.batch-thumb.active{border-color:#1677ff}
+.batch-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* 操作按钮 */
+.action-buttons{display:flex;gap:12px;margin-top:16px}
+.btn{padding:12px 24px;border-radius:8px;font-size:15px;cursor:pointer;transition:all .2s;border:none;font-weight:500;flex:1}
+.btn-primary{background:linear-gradient(135deg,#1677ff 0%,#4096ff 100%);color:#fff;box-shadow:0 2px 8px rgba(22,119,255,0.3)}
+.btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 12px rgba(22,119,255,0.4)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-secondary{background:#fff;color:#666;border:1px solid #e0e0e0}
+.btn-secondary:hover{color:#1677ff;border-color:#1677ff}
+.export-quality-note{font-size:12px;color:#999;text-align:center;margin-top:8px}
+.export-quality-note .free-tag{color:#ff4d4f;font-weight:500}
+
+/* 使用引导 */
+.guide-section{margin-top:24px}
+.guide-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.guide-step{text-align:center;padding:20px;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+.guide-step .step-icon{font-size:36px;margin-bottom:10px}
+.guide-step .step-num{display:inline-block;width:24px;height:24px;line-height:24px;border-radius:50%;background:#1677ff;color:#fff;font-size:13px;font-weight:600;margin-bottom:8px}
+.guide-step .step-title{font-size:15px;font-weight:600;color:#1a1a1a;margin-bottom:4px}
+.guide-step .step-desc{font-size:13px;color:#999}
+
+/* FAQ */
+.faq-section{margin-top:24px}
+.faq-item{background:#fff;border-radius:12px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,0.04);overflow:hidden}
+.faq-question{padding:16px 20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:500;color:#1a1a1a}
+.faq-question:hover{color:#1677ff}
+.faq-question .arrow{transition:transform .3s;font-size:12px;color:#999}
+.faq-item.open .faq-question .arrow{transform:rotate(180deg);color:#1677ff}
+.faq-answer{max-height:0;overflow:hidden;transition:max-height .3s ease;padding:0 20px;font-size:13px;color:#666;line-height:1.8}
+.faq-item.open .faq-answer{max-height:300px;padding:0 20px 16px}
+
+/* 广告位（仅免费用户显示）*/
+.ad-section{margin-top:20px;display:none}
+.ad-section.show{display:block}
+.ad-banner{background:linear-gradient(135deg,#fff9e6,#fff3cd);border:1px dashed #ffd591;border-radius:12px;padding:20px;text-align:center;color:#ad6800}
+.ad-banner .ad-title{font-size:14px;font-weight:600;margin-bottom:6px}
+.ad-banner .ad-desc{font-size:12px;margin-bottom:10px}
+.ad-banner .ad-btn{display:inline-block;padding:6px 16px;background:#faad14;color:#fff;border-radius:6px;font-size:13px;cursor:pointer;border:none}
+.ad-banner .ad-btn:hover{background:#d48806}
+
+/* 底部 */
+.footer{margin-top:40px;padding:24px 0;text-align:center;font-size:13px;color:#999;border-top:1px solid #eef0f3}
+
+/* 进度条 */
+.progress-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1500;align-items:center;justify-content:center}
+.progress-overlay.show{display:flex}
+.progress-box{background:#fff;padding:30px 40px;border-radius:12px;text-align:center;min-width:300px}
+.progress-box .icon{font-size:48px;margin-bottom:12px}
+.progress-box .title{font-size:16px;font-weight:600;margin-bottom:8px}
+.progress-box .desc{font-size:13px;color:#999;margin-bottom:16px}
+.progress-bar{width:100%;height:8px;background:#f0f0f0;border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#1677ff,#4096ff);border-radius:4px;transition:width .3s;width:0%}
+
+/* Toast提示 */
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-100px);background:rgba(0,0,0,0.8);color:#fff;padding:12px 24px;border-radius:8px;font-size:14px;z-index:2000;transition:transform .3s;pointer-events:none;max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ===== 弹窗通用样式 ===== */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1800;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:16px;max-width:900px;width:100%;margin:auto;overflow:hidden;animation:modalIn .3s ease}
+@keyframes modalIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{padding:20px 24px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center}
+.modal-title{font-size:18px;font-weight:600;color:#1a1a1a}
+.modal-close{width:32px;height:32px;border:none;background:#f5f5f5;border-radius:50%;cursor:pointer;font-size:18px;color:#666;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.modal-close:hover{background:#e0e0e0;color:#333}
+.modal-body{padding:24px;max-height:70vh;overflow-y:auto}
+
+/* ===== 升级套餐弹窗 ===== */
+.plans-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.plan-card{border:2px solid #f0f0f0;border-radius:12px;padding:20px;text-align:center;transition:all .2s;position:relative}
+.plan-card:hover{border-color:#1677ff;transform:translateY(-2px)}
+.plan-card.recommend{border-color:#1677ff;background:linear-gradient(180deg,#f0f7ff,#fff)}
+.plan-card.recommend::before{content:'推荐';position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#1677ff;color:#fff;font-size:11px;padding:2px 10px;border-radius:10px}
+.plan-name{font-size:16px;font-weight:600;color:#1a1a1a;margin-bottom:4px}
+.plan-price{font-size:28px;font-weight:700;color:#1677ff;margin-bottom:4px}
+.plan-price .unit{font-size:14px;font-weight:400;color:#999}
+.plan-period{font-size:12px;color:#999;margin-bottom:12px}
+.plan-features{list-style:none;padding:0;margin:0 0 16px;text-align:left}
+.plan-features li{font-size:12px;color:#666;padding:4px 0;display:flex;align-items:center;gap:6px}
+.plan-features li .check{color:#52c41a;font-weight:bold}
+.qr-area{display:flex;gap:12px;justify-content:center;margin-bottom:12px}
+.qr-item{text-align:center}
+.qr-item .qr-label{font-size:12px;color:#666;margin-bottom:6px}
+.qr-img-box{width:100px;height:100px;border:1px solid #e0e0e0;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fafafa;overflow:hidden}
+.qr-img-box img{width:100%;height:100%;object-fit:contain}
+.qr-img-box .placeholder{font-size:10px;color:#bbb;text-align:center;padding:4px}
+.plan-cta{width:100%;padding:10px;background:#1677ff;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s}
+.plan-cta:hover{background:#4096ff}
+.customer-service{text-align:center;padding:16px;background:#f5f7fa;border-radius:8px;margin-top:16px;font-size:13px;color:#666}
+.customer-service .wx{color:#1677ff;font-weight:600}
+.bottom-cta-bar{text-align:center;margin-top:20px;padding-top:16px;border-top:1px solid #f0f0f0}
+.bottom-cta-btn{padding:12px 32px;background:linear-gradient(135deg,#1677ff,#4096ff);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s}
+.bottom-cta-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(22,119,255,0.4)}
+
+/* ===== 兑换码输入弹窗 ===== */
+.redeem-box{text-align:center;padding:20px 0}
+.redeem-box .icon{font-size:48px;margin-bottom:12px}
+.redeem-box .title{font-size:18px;font-weight:600;margin-bottom:6px}
+.redeem-box .desc{font-size:13px;color:#999;margin-bottom:20px}
+.redeem-input{width:100%;max-width:360px;padding:14px 16px;border:2px solid #e0e0e0;border-radius:8px;font-size:16px;text-align:center;letter-spacing:2px;outline:none;transition:border-color .2s;text-transform:uppercase}
+.redeem-input:focus{border-color:#1677ff}
+.redeem-btn{margin-top:16px;padding:12px 40px;background:#1677ff;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s}
+.redeem-btn:hover{background:#4096ff}
+.redeem-hint{margin-top:16px;font-size:12px;color:#999}
+
+/* ===== 升级引导小弹窗 ===== */
+.upgrade-guide-box{text-align:center;padding:24px}
+.upgrade-guide-box .icon{font-size:56px;margin-bottom:12px}
+.upgrade-guide-box .title{font-size:17px;font-weight:600;margin-bottom:8px;color:#1a1a1a}
+.upgrade-guide-box .desc{font-size:14px;color:#666;margin-bottom:20px;line-height:1.7}
+.upgrade-guide-box .guide-btn{padding:12px 32px;background:linear-gradient(135deg,#1677ff,#4096ff);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s}
+.upgrade-guide-box .guide-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(22,119,255,0.4)}
+.upgrade-guide-box .later-link{display:block;margin-top:12px;font-size:13px;color:#999;cursor:pointer}
+.upgrade-guide-box .later-link:hover{color:#666}
+
+/* 响应式 - 平板 */
+@media (max-width: 960px){
+  .main-layout{grid-template-columns:1fr}
+  .guide-steps{grid-template-columns:1fr 1fr}
+  .plans-grid{grid-template-columns:1fr;gap:12px}
+  .plan-card{padding:16px}
+}
+
+/* 响应式 - 手机 */
+@media (max-width: 640px){
+  .header-inner{flex-direction:column;gap:8px;text-align:center}
+  .logo-text{font-size:18px}
+  .slogan{font-size:11px}
+  .user-area{flex-wrap:wrap;justify-content:center}
+  .container{padding:0 12px;margin:16px auto}
+  .card{padding:16px;margin-bottom:12px}
+  .scene-grid{grid-template-columns:1fr 1fr}
+  .guide-steps{grid-template-columns:1fr}
+  .action-buttons{flex-direction:column}
+  .btn{width:100%}
+  .upload-area{padding:24px 16px;min-height:150px}
+  .upload-icon{font-size:36px}
+  .crop-info-bar{flex-wrap:wrap;gap:8px;font-size:12px}
+  #cropCanvas{max-height:350px}
+  .qr-area{flex-direction:row}
+  .qr-img-box{width:80px;height:80px}
+  .modal-box{margin:8px}
+  .modal-body{padding:16px}
+  .plans-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- 顶部导航 -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-icon">🖼️</span>
+      <span class="logo-text">电商图片尺寸适配工具</span>
+    </div>
+    <div class="slogan">选平台 → 选场景 → 一键导出合规图片</div>
+    <div class="user-area">
+      <div class="user-badge free" id="userBadge" title="点击查看权益">
+        <span class="dot"></span>
+        <span id="userLabel">免费用户</span>
+        <span class="expire" id="userExpire"></span>
+      </div>
+      <button class="activate-btn" id="activateBtn">⭐ 激活会员</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="main-layout">
+    <!-- 左侧设置面板 -->
+    <div class="left-panel">
+      <!-- 平台场景选择 -->
+      <div class="card">
+        <div class="card-title"><span class="icon">📱</span>选择平台与场景<span id="platformLockTag"></span></div>
+        <div class="platform-tabs" id="platformTabs"></div>
+        <div class="scene-grid" id="sceneGrid"></div>
+        <div class="custom-size" id="customSize">
+          <div class="lock-hint" id="customLockHint"></div>
+          <div class="custom-inputs">
+            <input type="number" id="customWidth" placeholder="宽度" min="1" max="10000">
+            <span>×</span>
+            <input type="number" id="customHeight" placeholder="高度" min="1" max="10000">
+          </div>
+          <button class="save-custom-btn" id="saveCustomBtn">＋ 保存为常用尺寸</button>
+          <div class="saved-custom-list" id="savedCustomList"></div>
+        </div>
+      </div>
+
+      <!-- 导出设置 -->
+      <div class="card">
+        <div class="card-title"><span class="icon">⚙️</span>导出设置</div>
+        <div class="export-setting">
+          <label>导出格式</label>
+          <select id="exportFormat">
+            <option value="image/jpeg">JPG (推荐)</option>
+            <option value="image/png">PNG (支持透明)</option>
+            <option value="image/webp">WEBP (体积小)</option>
+          </select>
+        </div>
+        <div class="export-setting">
+          <label>图片画质 <span id="qualityTag" class="quality-tag free">免费版画质</span><span class="upgrade-inline" id="qualityUpgrade" style="display:none">升级解锁无损</span></label>
+          <div class="quality-row">
+            <input type="range" id="qualitySlider" min="10" max="100" value="80">
+            <span class="quality-value" id="qualityValue">80%</span>
+          </div>
+          <div class="size-estimate" id="sizeEstimate">预估文件大小：--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧操作区 -->
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-title"><span class="icon">✂️</span>图片裁剪预览</div>
+        
+        <!-- AI居中工具栏 -->
+        <div class="ai-center-bar">
+          <button class="ai-btn" id="aiCenterBtn" disabled>🤖 AI商品自动居中</button>
+          <button class="recenter-btn" id="recenterBtn">🔄 重置居中</button>
+        </div>
+        
+        <!-- 上传区域 -->
+        <div class="upload-area" id="uploadArea">
+          <div class="upload-icon">📤</div>
+          <div class="upload-text">点击或拖拽图片到此处上传</div>
+          <div class="upload-hint">支持 JPG / PNG / WEBP 格式，可批量上传</div>
+          <div class="upload-limit" id="uploadLimit">免费版单次最多5张</div>
+          <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" multiple>
+        </div>
+
+        <!-- 批量图片列表 -->
+        <div class="batch-list" id="batchList">
+          <div class="batch-list-title">
+            <span>已上传图片 <span class="count" id="batchCount">0</span> 张</span>
+            <span class="compare-toggle">
+              <input type="checkbox" id="compareToggle">
+              <label for="compareToggle">对比原图</label>
+            </span>
+          </div>
+          <div class="batch-thumbs" id="batchThumbs"></div>
+        </div>
+
+        <!-- 裁剪预览 -->
+        <div class="crop-container" id="cropContainer">
+          <div class="crop-canvas-wrap">
+            <canvas id="cropCanvas"></canvas>
+          </div>
+          <div class="crop-info-bar">
+            <div class="info-item">目标尺寸：<span class="info-val" id="targetSize">--</span></div>
+            <div class="info-item">当前位置：<span class="info-val" id="cropPos">--</span></div>
+            <div class="info-item">缩放：<span class="info-val" id="zoomLevel">100%</span></div>
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="action-buttons">
+          <button class="btn btn-secondary" id="resetBtn">🔄 重新上传</button>
+          <button class="btn btn-primary" id="exportBtn" disabled>📥 导出图片</button>
+        </div>
+        <div class="export-quality-note" id="exportNote"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 广告位（仅免费用户显示） -->
+  <div class="ad-section" id="adSection">
+    <div class="ad-banner">
+      <div class="ad-title">📢 升级会员，提升效率</div>
+      <div class="ad-desc">告别5张限制，解锁无限批量处理 + AI自动居中 + 全平台尺寸库</div>
+      <button class="ad-btn" id="adUpgradeBtn">查看升级套餐</button>
+    </div>
+  </div>
+
+  <!-- 使用引导 -->
+  <div class="guide-section">
+    <div class="card">
+      <div class="card-title"><span class="icon">📖</span>使用指南 · 三步搞定</div>
+      <div class="guide-steps">
+        <div class="guide-step">
+          <div class="step-num">1</div>
+          <div class="step-icon">📤</div>
+          <div class="step-title">上传图片</div>
+          <div class="step-desc">点击或拖拽上传，支持批量操作</div>
+        </div>
+        <div class="guide-step">
+          <div class="step-num">2</div>
+          <div class="step-icon">🎯</div>
+          <div class="step-title">选平台场景</div>
+          <div class="step-desc">内置全平台尺寸，一键匹配</div>
+        </div>
+        <div class="guide-step">
+          <div class="step-num">3</div>
+          <div class="step-icon">✅</div>
+          <div class="step-title">导出下载</div>
+          <div class="step-desc">自动压缩到合规大小，批量打包</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 常见问题 -->
+  <div class="faq-section">
+    <div class="card">
+      <div class="card-title"><span class="icon">❓</span>常见问题</div>
+      <div class="faq-item">
+        <div class="faq-question">图片会上传到服务器吗？<span class="arrow">▼</span></div>
+        <div class="faq-answer">不会！所有图片处理全程在您的浏览器本地完成，图片数据不会上传到任何服务器，完全保护您的隐私和商业机密。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-question">免费用户有哪些限制？<span class="arrow">▼</span></div>
+        <div class="faq-answer">免费用户单次最多上传5张图片，可用淘宝/拼多多的主图和白底图尺寸，普通画质导出，单张依次下载。升级会员可解锁无限批量、全平台尺寸、AI自动居中等功能。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-question">如何升级会员？<span class="arrow">▼</span></div>
+        <div class="faq-answer">点击右上角「激活会员」按钮，选择合适的套餐扫码付款，付款后联系客服获取兑换码，输入即可立即解锁对应权限。所有权限在本地浏览器中管理。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-question">兑换码失效了怎么办？<span class="arrow">▼</span></div>
+        <div class="faq-answer">每个兑换码在同一浏览器只能使用一次。如果到期或次数用完，权限会自动恢复为免费用户。如需继续使用付费功能，请重新购买套餐获取新的兑换码。</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-question">支持哪些图片格式？<span class="arrow">▼</span></div>
+        <div class="faq-answer">支持 JPG、PNG、WEBP 三种常见格式的上传，导出时也可选择这三种格式。其中 PNG 支持透明背景，WEBP 体积最小。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 底部 -->
+<footer class="footer">
+  <p>© 2024 电商图片尺寸适配工具 · 纯前端本地处理，图片不上传服务器</p>
+  <p style="margin-top:4px">平台尺寸规则持续更新中，如有偏差欢迎反馈</p>
+</footer>
+
+<!-- 进度条 -->
+<div class="progress-overlay" id="progressOverlay">
+  <div class="progress-box">
+    <div class="icon">⏳</div>
+    <div class="title" id="progressTitle">处理中...</div>
+    <div class="desc" id="progressDesc">请稍候</div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ===== 升级套餐弹窗 ===== -->
+<div class="modal-overlay" id="upgradeModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title">⭐ 升级会员，解锁全部功能</div>
+      <button class="modal-close" data-close="upgradeModal">×</button>
+    </div>
+    <div class="modal-body">
+      <!-- 套餐卡片 -->
+      <div class="plans-grid">
+        <!-- 1元次卡 -->
+        <div class="plan-card">
+          <div class="plan-name">1元次卡</div>
+          <div class="plan-price">¥1<span class="unit">/次</span></div>
+          <div class="plan-period">7天有效期</div>
+          <ul class="plan-features">
+            <li><span class="check">✓</span>单次批量20张</li>
+            <li><span class="check">✓</span>高清画质导出</li>
+            <li><span class="check">✓</span>全平台尺寸库</li>
+            <li><span class="check">✓</span>批量ZIP打包</li>
+            <li style="color:#bbb"><span class="check" style="color:#bbb">✗</span>AI自动居中</li>
+          </ul>
+          <!-- 收款码替换区：1元次卡 -->
+          <div class="qr-area">
+            <div class="qr-item">
+              <div class="qr-label">微信支付</div>
+              <!-- ===== 收款码替换区 - 1元微信 ===== -->
+              <div class="qr-img-box" id="qr1Wechat">
+                <img src="https://i.imgur.com/XHKKaQn.jpeg" alt="微信收款码">
+              </div>
+            </div>
+            <div class="qr-item">
+              <div class="qr-label">支付宝</div>
+              <!-- ===== 收款码替换区 - 1元支付宝 ===== -->
+              <div class="qr-img-box" id="qr1Alipay">
+                <img src="https://i.imgur.com/6AKu1wZ.jpeg" alt="支付宝收款码">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5元次卡 -->
+        <div class="plan-card recommend">
+          <div class="plan-name">5元次卡</div>
+          <div class="plan-price">¥5<span class="unit">/次</span></div>
+          <div class="plan-period">30天有效期</div>
+          <ul class="plan-features">
+            <li><span class="check">✓</span>单次批量100张</li>
+            <li><span class="check">✓</span>AI商品自动居中</li>
+            <li><span class="check">✓</span>高清画质导出</li>
+            <li><span class="check">✓</span>全平台尺寸库</li>
+            <li><span class="check">✓</span>批量ZIP打包</li>
+          </ul>
+          <!-- 收款码替换区：5元次卡 -->
+          <div class="qr-area">
+            <div class="qr-item">
+              <div class="qr-label">微信支付</div>
+              <!-- ===== 收款码替换区 - 5元微信 ===== -->
+              <div class="qr-img-box" id="qr5Wechat">
+                <img src="https://i.imgur.com/XHKKaQn.jpeg" alt="微信收款码">
+              </div>
+            </div>
+            <div class="qr-item">
+              <div class="qr-label">支付宝</div>
+              <!-- ===== 收款码替换区 - 5元支付宝 ===== -->
+              <div class="qr-img-box" id="qr5Alipay">
+                <img src="https://i.imgur.com/6AKu1wZ.jpeg" alt="支付宝收款码">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 月度会员 -->
+        <div class="plan-card">
+          <div class="plan-name">月度会员</div>
+          <div class="plan-price">¥9.9<span class="unit">/月</span></div>
+          <div class="plan-period">30天有效期</div>
+          <ul class="plan-features">
+            <li><span class="check">✓</span>无限批量上传</li>
+            <li><span class="check">✓</span>AI商品自动居中</li>
+            <li><span class="check">✓</span>无损原图画质</li>
+            <li><span class="check">✓</span>全平台全场景尺寸</li>
+            <li><span class="check">✓</span>批量ZIP打包</li>
+          </ul>
+          <!-- 收款码替换区：月度会员 -->
+          <div class="qr-area">
+            <div class="qr-item">
+              <div class="qr-label">微信支付</div>
+              <!-- ===== 收款码替换区 - 月卡微信 ===== -->
+              <div class="qr-img-box" id="qrMonthWechat">
+                <img src="https://i.imgur.com/XHKKaQn.jpeg" alt="微信收款码">
+              </div>
+            </div>
+            <div class="qr-item">
+              <div class="qr-label">支付宝</div>
+              <!-- ===== 收款码替换区 - 月卡支付宝 ===== -->
+              <div class="qr-img-box" id="qrMonthAlipay">
+                <img src="https://i.imgur.com/6AKu1wZ.jpeg" alt="支付宝收款码">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 客服信息区 ===== 修改下方微信号为你自己的客服微信 -->
+      <div class="customer-service">
+        💡 付款后请添加客服微信：<span class="wx" id="customerWechat">vaultchainpay0905</span>（点击复制）<br>
+        <span style="font-size:12px;color:#999">发送付款截图，即可获取对应兑换码，输入后立即解锁权限</span>
+      </div>
+
+      <div class="bottom-cta-bar">
+        <button class="bottom-cta-btn" id="goRedeemBtn">🔑 我已付款，输入兑换码</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 兑换码输入弹窗 ===== -->
+<div class="modal-overlay" id="redeemModal">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">🔑 输入兑换码</div>
+      <button class="modal-close" data-close="redeemModal">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="redeem-box">
+        <div class="icon">🎁</div>
+        <div class="title">输入您的兑换码</div>
+        <div class="desc">兑换码不区分大小写，输入后自动激活对应权益</div>
+        <input type="text" class="redeem-input" id="redeemInput" placeholder="请输入兑换码" maxlength="20">
+        <br>
+        <button class="redeem-btn" id="redeemConfirmBtn">立即激活</button>
+        <div class="redeem-hint">每个兑换码仅限同一浏览器使用一次</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 升级引导小弹窗（4种触发场景通用） ===== -->
+<div class="modal-overlay" id="guideModal">
+  <div class="modal-box" style="max-width:380px">
+    <div class="modal-body">
+      <div class="upgrade-guide-box">
+        <div class="icon" id="guideIcon">🔒</div>
+        <div class="title" id="guideTitle">需要升级会员</div>
+        <div class="desc" id="guideDesc">此功能为会员专属功能</div>
+        <button class="guide-btn" id="guideUpgradeBtn">查看升级套餐</button>
+        <span class="later-link" data-close="guideModal">以后再说</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====================================================================
+// ===== 平台尺寸预设库 =====
+// ====================================================================
+const presets = {
+  taobao: {
+    name: '淘宝/天猫',
+    icon: '🛒',
+    scenes: [
+      { id: 'main', name: '主图', width: 800, height: 800, maxSize: null, format: 'image/jpeg' },
+      { id: 'white', name: '白底图', width: 800, height: 800, maxSize: 500, format: 'image/jpeg' },
+      { id: 'long', name: '长主图', width: 800, height: 1200, maxSize: null, format: 'image/jpeg' },
+      { id: 'ztc', name: '直通车', width: 800, height: 800, maxSize: null, format: 'image/jpeg' },
+      { id: 'detail', name: '详情页宽度', width: 750, height: 1000, maxSize: null, format: 'image/jpeg', desc: '宽固定' },
+      { id: 'sku', name: 'SKU缩略图', width: 800, height: 800, maxSize: null, format: 'image/jpeg' }
+    ]
+  },
+  douyin: {
+    name: '抖音电商',
+    icon: '🎵',
+    scenes: [
+      { id: 'main', name: '主图', width: 800, height: 800, maxSize: null, format: 'image/jpeg' },
+      { id: 'white', name: '白底图', width: 800, height: 800, maxSize: 2048, format: 'image/jpeg' },
+      { id: 'long', name: '长图', width: 750, height: 1000, maxSize: null, format: 'image/jpeg' },
+      { id: 'live', name: '直播封面', width: 1080, height: 1920, maxSize: null, format: 'image/jpeg' },
+      { id: 'detail', name: '商品详情页宽', width: 750, height: 1000, maxSize: null, format: 'image/jpeg' }
+    ]
+  },
+  pdd: {
+    name: '拼多多',
+    icon: '🍊',
+    scenes: [
+      { id: 'main', name: '主图', width: 800, height: 800, maxSize: null, format: 'image/jpeg' },
+      { id: 'white', name: '白底图', width: 800, height: 800, maxSize: 500, format: 'image/jpeg' },
+      { id: 'long', name: '长图', width: 800, height: 1200, maxSize: null, format: 'image/jpeg' },
+      { id: 'scene', name: '场景图', width: 800, height: 800, maxSize: null, format: 'image/jpeg' }
+    ]
+  },
+  xhs: {
+    name: '小红书',
+    icon: '📕',
+    scenes: [
+      { id: 'cover', name: '笔记首图', width: 1080, height: 1440, maxSize: null, format: 'image/jpeg' },
+      { id: 'main', name: '商品主图', width: 800, height: 800, maxSize: null, format: 'image/jpeg' },
+      { id: 'vertical', name: '竖版封面', width: 1080, height: 1920, maxSize: null, format: 'image/jpeg' }
+    ]
+  },
+  jd: {
+    name: '京东',
+    icon: '📦',
+    scenes: [
+      { id: 'main', name: '主图', width: 800, height: 800, maxSize: null, format: 'image/jpeg' },
+      { id: 'white', name: '白底图', width: 800, height: 800, maxSize: null, format: 'image/jpeg' },
+      { id: 'long', name: '长图', width: 800, height: 1200, maxSize: null, format: 'image/jpeg' }
+    ]
+  },
+  custom: {
+    name: '自定义',
+    icon: '⚙️',
+    scenes: []
+  }
+};
+
+// ====================================================================
+// ===== 兑换码配置区（在此处手动新增/删除兑换码）=====
+// ====================================================================
+// 每个兑换码包含字段：
+//   code: 兑换码字符串（不区分大小写）
+//   type: 权限类型，可选值：'ticket_1'(1元次卡)、'ticket_5'(5元次卡)、'monthly'(月度会员)
+//   name: 套餐名称（用于显示）
+//   validDays: 有效期天数
+//   batchLimit: 批量上传上限（Infinity表示无限）
+//   ai: 是否支持AI自动居中
+//   quality: 画质等级 'normal'(普通)、'hd'(高清)、'lossless'(无损)
+//   zip: 是否支持ZIP打包
+//   allPlatforms: 是否解锁全平台尺寸库
+//   ads: 是否显示广告
+//
+// 【新增兑换码】：复制下方任一对象，修改code字段为新的兑换码即可
+// 【删除兑换码】：删除对应对象即可
+// 【注意】：同一code不要重复，否则先匹配到的生效
+const REDEEM_CODES = [
+  // ----- 1元次卡兑换码（7天有效，批量20张，高清画质）-----
+  { code: 'TAOBAO1A', type: 'ticket_1', name: '1元次卡', validDays: 7, batchLimit: 20, ai: false, quality: 'hd', zip: true, allPlatforms: true, ads: false },
+  { code: 'PDD1B', type: 'ticket_1', name: '1元次卡', validDays: 7, batchLimit: 20, ai: false, quality: 'hd', zip: true, allPlatforms: true, ads: false },
+  { code: 'SHOP1C', type: 'ticket_1', name: '1元次卡', validDays: 7, batchLimit: 20, ai: false, quality: 'hd', zip: true, allPlatforms: true, ads: false },
+  
+  // ----- 5元次卡兑换码（30天有效，批量100张，AI+高清）-----
+  { code: 'VIP5A', type: 'ticket_5', name: '5元次卡', validDays: 30, batchLimit: 100, ai: true, quality: 'hd', zip: true, allPlatforms: true, ads: false },
+  { code: 'VIP5B', type: 'ticket_5', name: '5元次卡', validDays: 30, batchLimit: 100, ai: true, quality: 'hd', zip: true, allPlatforms: true, ads: false },
+  { code: 'VIP5C', type: 'ticket_5', name: '5元次卡', validDays: 30, batchLimit: 100, ai: true, quality: 'hd', zip: true, allPlatforms: true, ads: false },
+  
+  // ----- 月度会员兑换码（30天有效，全功能解锁）-----
+  { code: 'MONTH99A', type: 'monthly', name: '月度会员', validDays: 30, batchLimit: Infinity, ai: true, quality: 'lossless', zip: true, allPlatforms: true, ads: false },
+  { code: 'MONTH99B', type: 'monthly', name: '月度会员', validDays: 30, batchLimit: Infinity, ai: true, quality: 'lossless', zip: true, allPlatforms: true, ads: false },
+];
+
+// ====================================================================
+// ===== 客服信息配置区 ===== 修改下方微信号为你自己的客服微信 =====
+// ====================================================================
+const CUSTOMER_WECHAT = 'vaultchainpay0905';
+
+// ===== 免费用户权限定义 =====
+const FREE_PERMISSIONS = {
+  type: 'free',
+  name: '免费用户',
+  batchLimit: 5,
+  ai: false,
+  quality: 'normal',  // 普通画质，压缩率80%
+  zip: false,         // 不支持ZIP打包
+  allPlatforms: false, // 仅开放淘宝、拼多多
+  ads: true,
+  // 免费用户开放的尺寸：淘宝/拼多多的主图、白底图
+  allowedScenes: {
+    taobao: ['main', 'white'],
+    pdd: ['main', 'white']
+  }
+};
+
+// ====================================================================
+// 状态管理
+// ====================================================================
+const state = {
+  currentPlatform: 'taobao',
+  currentScene: null,
+  images: [],
+  currentImageIndex: 0,
+  cropX: 0,
+  cropY: 0,
+  cropWidth: 0,
+  cropHeight: 0,
+  scale: 1,
+  isDragging: false,
+  dragStartX: 0,
+  dragStartY: 0,
+  cropStartX: 0,
+  cropStartY: 0,
+  displayScale: 1,
+  compareMode: false,
+  savedCustomSizes: JSON.parse(localStorage.getItem('savedCustomSizes') || '[]'),
+  userPermission: null  // 当前用户权限
+};
+
+// ====================================================================
+// ===== 用户权限管理模块 =====
+// ====================================================================
+function loadUserPermission() {
+  try {
+    const raw = localStorage.getItem('userMembership');
+    if (!raw) {
+      state.userPermission = { ...FREE_PERMISSIONS };
+      return;
+    }
+    const data = JSON.parse(raw);
+    // 检查是否过期
+    if (data.expireAt && Date.now() > data.expireAt) {
+      // 已过期，清除并恢复免费用户
+      const expiredType = data.name || '会员';
+      localStorage.removeItem('userMembership');
+      state.userPermission = { ...FREE_PERMISSIONS };
+      // 延迟提示续费
+      setTimeout(() => {
+        showGuideModal('⏰', expiredType + '已到期', '您的' + expiredType + '权限已到期，已恢复为免费用户。如需继续使用全部功能，请续费升级。');
+      }, 800);
+      return;
+    }
+    state.userPermission = { ...FREE_PERMISSIONS, ...data };
+  } catch (e) {
+    state.userPermission = { ...FREE_PERMISSIONS };
+  }
+}
+
+function saveUserPermission(codeData) {
+  const now = Date.now();
+  const perm = {
+    type: codeData.type,
+    name: codeData.name,
+    activatedAt: now,
+    expireAt: now + codeData.validDays * 24 * 60 * 60 * 1000,
+    batchLimit: codeData.batchLimit,
+    ai: codeData.ai,
+    quality: codeData.quality,
+    zip: codeData.zip,
+    allPlatforms: codeData.allPlatforms,
+    ads: codeData.ads
+  };
+  localStorage.setItem('userMembership', JSON.stringify(perm));
+  state.userPermission = { ...FREE_PERMISSIONS, ...perm };
+}
+
+function getUsedCodes() {
+  try {
+    return JSON.parse(localStorage.getItem('usedRedeemCodes') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function addUsedCode(code) {
+  const used = getUsedCodes();
+  used.push({ code: code.toUpperCase(), usedAt: Date.now() });
+  localStorage.setItem('usedRedeemCodes', JSON.stringify(used));
+}
+
+function isCodeUsed(code) {
+  return getUsedCodes().some(c => c.code === code.toUpperCase());
+}
+
+function validateRedeemCode(inputCode) {
+  const code = inputCode.trim().toUpperCase();
+  if (!code) return { valid: false, msg: '请输入兑换码' };
+  
+  if (isCodeUsed(code)) {
+    return { valid: false, msg: '该兑换码已使用，请勿重复使用' };
+  }
+  
+  const found = REDEEM_CODES.find(c => c.code.toUpperCase() === code);
+  if (!found) {
+    return { valid: false, msg: '兑换码不存在，请检查后重新输入' };
+  }
+  
+  return { valid: true, codeData: found };
+}
+
+function activateCode(inputCode) {
+  const result = validateRedeemCode(inputCode);
+  if (!result.valid) {
+    showToast(result.msg);
+    return false;
+  }
+  
+  saveUserPermission(result.codeData);
+  addUsedCode(result.codeData.code);
+  
+  // 刷新UI
+  updateUserBadge();
+  refreshPermissionUI();
+  
+  showToast('🎉 ' + result.codeData.name + '激活成功！');
+  closeModal('redeemModal');
+  
+  // 延迟显示成功引导
+  setTimeout(() => {
+    showGuideModal('🎉', '激活成功！', '您已成功激活' + result.codeData.name + '，有效期' + result.codeData.validDays + '天。现在可以享受全部会员权益了！');
+  }, 400);
+  
+  return true;
+}
+
+// 检查用户是否有全平台访问权限，返回被锁定的平台列表
+function isPlatformLocked(platformKey) {
+  if (state.userPermission.allPlatforms) return false;
+  // 免费用户仅开放 taobao 和 pdd
+  const allowed = FREE_PERMISSIONS.allowedScenes;
+  return !allowed.hasOwnProperty(platformKey);
+}
+
+function isSceneLocked(platformKey, sceneId) {
+  if (state.userPermission.allPlatforms) return false;
+  const allowed = FREE_PERMISSIONS.allowedScenes;
+  if (!allowed.hasOwnProperty(platformKey)) return true;
+  return !allowed[platformKey].includes(sceneId);
+}
+
+function isCustomSizeLocked() {
+  return !state.userPermission.allPlatforms;
+}
+
+// 获取剩余天数
+function getRemainingDays() {
+  if (state.userPermission.type === 'free') return 0;
+  const raw = localStorage.getItem('userMembership');
+  if (!raw) return 0;
+  try {
+    const data = JSON.parse(raw);
+    if (!data.expireAt) return 0;
+    const remain = Math.ceil((data.expireAt - Date.now()) / (24 * 60 * 60 * 1000));
+    return Math.max(0, remain);
+  } catch (e) {
+    return 0;
+  }
+}
+
+// ====================================================================
+// DOM元素
+// ====================================================================
+const $ = id => document.getElementById(id);
+const els = {
+  platformTabs: $('platformTabs'),
+  sceneGrid: $('sceneGrid'),
+  platformLockTag: $('platformLockTag'),
+  customSize: $('customSize'),
+  customLockHint: $('customLockHint'),
+  customWidth: $('customWidth'),
+  customHeight: $('customHeight'),
+  saveCustomBtn: $('saveCustomBtn'),
+  savedCustomList: $('savedCustomList'),
+  uploadArea: $('uploadArea'),
+  fileInput: $('fileInput'),
+  uploadLimit: $('uploadLimit'),
+  aiCenterBtn: $('aiCenterBtn'),
+  recenterBtn: $('recenterBtn'),
+  cropContainer: $('cropContainer'),
+  cropCanvas: $('cropCanvas'),
+  targetSize: $('targetSize'),
+  cropPos: $('cropPos'),
+  zoomLevel: $('zoomLevel'),
+  batchList: $('batchList'),
+  batchCount: $('batchCount'),
+  batchThumbs: $('batchThumbs'),
+  compareToggle: $('compareToggle'),
+  exportFormat: $('exportFormat'),
+  qualitySlider: $('qualitySlider'),
+  qualityValue: $('qualityValue'),
+  qualityTag: $('qualityTag'),
+  qualityUpgrade: $('qualityUpgrade'),
+  sizeEstimate: $('sizeEstimate'),
+  exportBtn: $('exportBtn'),
+  exportNote: $('exportNote'),
+  resetBtn: $('resetBtn'),
+  adSection: $('adSection'),
+  adUpgradeBtn: $('adUpgradeBtn'),
+  userBadge: $('userBadge'),
+  userLabel: $('userLabel'),
+  userExpire: $('userExpire'),
+  activateBtn: $('activateBtn'),
+  progressOverlay: $('progressOverlay'),
+  progressTitle: $('progressTitle'),
+  progressDesc: $('progressDesc'),
+  progressFill: $('progressFill'),
+  toast: $('toast'),
+  upgradeModal: $('upgradeModal'),
+  redeemModal: $('redeemModal'),
+  guideModal: $('guideModal'),
+  redeemInput: $('redeemInput'),
+  redeemConfirmBtn: $('redeemConfirmBtn'),
+  goRedeemBtn: $('goRedeemBtn'),
+  guideIcon: $('guideIcon'),
+  guideTitle: $('guideTitle'),
+  guideDesc: $('guideDesc'),
+  guideUpgradeBtn: $('guideUpgradeBtn'),
+  customerWechat: $('customerWechat')
+};
+
+const ctx = els.cropCanvas.getContext('2d');
+
+// ====================================================================
+// 初始化
+// ====================================================================
+function init() {
+  loadUserPermission();
+  // 设置客服微信
+  els.customerWechat.textContent = CUSTOMER_WECHAT;
+  updateUserBadge();
+  renderPlatformTabs();
+  renderScenes();
+  renderSavedCustomSizes();
+  bindEvents();
+  refreshPermissionUI();
+}
+
+// ====================================================================
+// 更新顶部用户徽章
+// ====================================================================
+function updateUserBadge() {
+  const perm = state.userPermission;
+  const badge = els.userBadge;
+  
+  badge.className = 'user-badge';
+  
+  if (perm.type === 'free') {
+    badge.classList.add('free');
+    els.userLabel.textContent = '免费用户';
+    els.userExpire.innerHTML = '';
+  } else {
+    badge.classList.add('vip');
+    const remainDays = getRemainingDays();
+    els.userLabel.textContent = perm.name;
+    
+    let expireHtml = '剩余' + remainDays + '天';
+    // 到期前3天显示续费提醒
+    if (remainDays <= 3 && remainDays > 0) {
+      expireHtml += '<span class="renew-tip">即将到期</span>';
+    }
+    els.userExpire.innerHTML = expireHtml;
+  }
+}
+
+// ====================================================================
+// 权限变化后刷新UI
+// ====================================================================
+function refreshPermissionUI() {
+  const perm = state.userPermission;
+  
+  // 更新上传限制提示
+  if (perm.type === 'free') {
+    els.uploadLimit.textContent = '免费版单次最多5张';
+  } else if (perm.batchLimit === Infinity) {
+    els.uploadLimit.textContent = '会员版无限批量上传';
+  } else {
+    els.uploadLimit.textContent = '单次最多' + perm.batchLimit + '张';
+  }
+  
+  // 更新AI按钮
+  if (perm.ai) {
+    els.aiCenterBtn.disabled = false;
+    els.aiCenterBtn.innerHTML = '🤖 AI商品自动居中';
+  } else {
+    els.aiCenterBtn.disabled = true;
+    els.aiCenterBtn.innerHTML = '🔒 AI商品自动居中 (会员)';
+  }
+  
+  // 更新画质标签
+  updateQualityTag();
+  
+  // 更新广告位
+  if (perm.ads) {
+    els.adSection.classList.add('show');
+  } else {
+    els.adSection.classList.remove('show');
+  }
+  
+  // 重新渲染平台和场景（应用权限）
+  renderPlatformTabs();
+  renderScenes();
+}
+
+// ====================================================================
+// 更新画质标签
+// ====================================================================
+function updateQualityTag() {
+  const perm = state.userPermission;
+  const tag = els.qualityTag;
+  const upgrade = els.qualityUpgrade;
+  
+  tag.className = 'quality-tag';
+  
+  if (perm.quality === 'lossless') {
+    tag.classList.add('lossless');
+    tag.textContent = '无损画质';
+    upgrade.style.display = 'none';
+    // 无损画质，滑块锁定100
+    els.qualitySlider.max = 100;
+    els.qualitySlider.value = 100;
+    els.qualitySlider.disabled = true;
+    els.qualityValue.textContent = '100%';
+  } else if (perm.quality === 'hd') {
+    tag.classList.add('hd');
+    tag.textContent = '高清画质';
+    upgrade.style.display = 'none';
+    els.qualitySlider.disabled = false;
+    els.qualitySlider.min = 60;
+    if (parseInt(els.qualitySlider.value) < 60) {
+      els.qualitySlider.value = 90;
+      els.qualityValue.textContent = '90%';
+    }
+  } else {
+    // 免费用户普通画质
+    tag.classList.add('free');
+    tag.textContent = '免费版画质';
+    upgrade.style.display = 'inline';
+    els.qualitySlider.disabled = false;
+    els.qualitySlider.min = 10;
+    // 免费用户限制最高80%
+    if (parseInt(els.qualitySlider.value) > 80) {
+      els.qualitySlider.value = 80;
+      els.qualityValue.textContent = '80%';
+    }
+    els.qualitySlider.max = 80;
+  }
+}
+
+// ====================================================================
+// 渲染平台Tab
+// ====================================================================
+function renderPlatformTabs() {
+  els.platformTabs.innerHTML = Object.entries(presets).map(([key, p]) => {
+    const locked = isPlatformLocked(key);
+    const lockIcon = locked ? ' <span class="lock-icon">🔒</span>' : '';
+    return `<div class="platform-tab ${key === state.currentPlatform ? 'active' : ''} ${locked ? 'locked' : ''}" data-platform="${key}">
+      ${p.icon} ${p.name}${lockIcon}
+    </div>`;
+  }).join('');
+}
+
+// ====================================================================
+// 渲染场景按钮
+// ====================================================================
+function renderScenes() {
+  const platform = presets[state.currentPlatform];
+  
+  if (state.currentPlatform === 'custom') {
+    els.sceneGrid.innerHTML = '';
+    els.customSize.classList.add('show');
+    
+    // 自定义尺寸是否锁定
+    if (isCustomSizeLocked()) {
+      els.customLockHint.innerHTML = '🔒 自定义尺寸为会员功能，<a class="upgrade-inline" id="customUpgradeLink">升级解锁</a>';
+      els.customWidth.disabled = true;
+      els.customHeight.disabled = true;
+      els.saveCustomBtn.disabled = true;
+      els.saveCustomBtn.style.opacity = '0.5';
+      // 绑定升级链接
+      setTimeout(() => {
+        const link = document.getElementById('customUpgradeLink');
+        if (link) link.addEventListener('click', () => showUpgradeModal());
+      }, 0);
+    } else {
+      els.customLockHint.innerHTML = '';
+      els.customWidth.disabled = false;
+      els.customHeight.disabled = false;
+      els.saveCustomBtn.disabled = false;
+      els.saveCustomBtn.style.opacity = '1';
+    }
+    
+    state.currentScene = null;
+    updateExportBtn();
+    return;
+  }
+  
+  els.customSize.classList.remove('show');
+  
+  els.sceneGrid.innerHTML = platform.scenes.map((s, i) => {
+    const locked = isSceneLocked(state.currentPlatform, s.id);
+    const lockFlag = locked ? '<span class="lock-flag">🔒</span>' : '';
+    const isActive = i === 0 && !locked;
+    return `<div class="scene-btn ${isActive ? 'active' : ''} ${locked ? 'locked' : ''}" data-scene="${s.id}" data-locked="${locked}">
+      <div>${s.name}</div>
+      <div class="size">${s.width}×${s.height}px${s.maxSize ? ' · ≤' + s.maxSize + 'KB' : ''}</div>
+      ${lockFlag}
+    </div>`;
+  }).join('');
+  
+  // 找第一个未锁定的场景
+  const firstUnlocked = platform.scenes.find(s => !isSceneLocked(state.currentPlatform, s.id));
+  if (firstUnlocked) {
+    state.currentScene = firstUnlocked;
+    updateTargetSize();
+    updateExportFormatDefault();
+    updateSizeEstimate();
+  } else {
+    state.currentScene = null;
+    updateExportBtn();
+  }
+}
+
+// ====================================================================
+// 渲染保存的自定义尺寸
+// ====================================================================
+function renderSavedCustomSizes() {
+  if (state.savedCustomSizes.length === 0) {
+    els.savedCustomList.innerHTML = '';
+    return;
+  }
+  els.savedCustomList.innerHTML = state.savedCustomSizes.map((s, i) => 
+    `<div class="saved-custom-item" data-index="${i}">
+      ${s.width}×${s.height}
+      <span class="del" data-del="${i}">×</span>
+    </div>`
+  ).join('');
+}
+
+// ====================================================================
+// 事件绑定
+// ====================================================================
+function bindEvents() {
+  // 平台切换
+  els.platformTabs.addEventListener('click', e => {
+    const tab = e.target.closest('.platform-tab');
+    if (!tab) return;
+    const platformKey = tab.dataset.platform;
+    
+    // 检查平台是否锁定
+    if (isPlatformLocked(platformKey)) {
+      showGuideModal('🔒', '平台尺寸未开放', '免费用户仅可使用淘宝、拼多多的主图和白底图尺寸。升级会员可解锁淘宝/抖音/拼多多/小红书/京东全平台全场景尺寸库。');
+      return;
+    }
+    
+    state.currentPlatform = platformKey;
+    renderPlatformTabs();
+    renderScenes();
+    if (state.images.length > 0) {
+      resetCrop();
+      renderCrop();
+    }
+  });
+
+  // 场景切换
+  els.sceneGrid.addEventListener('click', e => {
+    const btn = e.target.closest('.scene-btn');
+    if (!btn) return;
+    
+    // 检查场景是否锁定
+    if (btn.dataset.locked === 'true') {
+      showGuideModal('🔒', '场景尺寸未开放', '该场景尺寸为会员专属。免费用户仅可使用淘宝、拼多多的主图和白底图尺寸。升级会员解锁全平台全场景尺寸库。');
+      return;
+    }
+    
+    const sceneId = btn.dataset.scene;
+    const platform = presets[state.currentPlatform];
+    state.currentScene = platform.scenes.find(s => s.id === sceneId);
+    
+    document.querySelectorAll('.scene-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    updateTargetSize();
+    updateExportFormatDefault();
+    updateSizeEstimate();
+    
+    if (state.images.length > 0) {
+      resetCrop();
+      renderCrop();
+    }
+  });
+
+  // 保存自定义尺寸
+  els.saveCustomBtn.addEventListener('click', () => {
+    if (isCustomSizeLocked()) {
+      showUpgradeModal();
+      return;
+    }
+    const w = parseInt(els.customWidth.value);
+    const h = parseInt(els.customHeight.value);
+    if (!w || !h || w <= 0 || h <= 0) {
+      showToast('请输入有效的宽高数值');
+      return;
+    }
+    const exists = state.savedCustomSizes.some(s => s.width === w && s.height === h);
+    if (exists) {
+      showToast('该尺寸已保存');
+      return;
+    }
+    state.savedCustomSizes.push({ width: w, height: h });
+    localStorage.setItem('savedCustomSizes', JSON.stringify(state.savedCustomSizes));
+    renderSavedCustomSizes();
+    showToast('尺寸已保存');
+  });
+
+  // 已保存的自定义尺寸点击/删除
+  els.savedCustomList.addEventListener('click', e => {
+    const delIdx = e.target.dataset.del;
+    if (delIdx !== undefined) {
+      e.stopPropagation();
+      state.savedCustomSizes.splice(delIdx, 1);
+      localStorage.setItem('savedCustomSizes', JSON.stringify(state.savedCustomSizes));
+      renderSavedCustomSizes();
+      return;
+    }
+    const item = e.target.closest('.saved-custom-item');
+    if (!item) return;
+    if (isCustomSizeLocked()) {
+      showUpgradeModal();
+      return;
+    }
+    const idx = item.dataset.index;
+    const size = state.savedCustomSizes[idx];
+    state.currentScene = { 
+      id: 'saved_' + idx, name: size.width + '×' + size.height, 
+      width: size.width, height: size.height, maxSize: null, format: 'image/jpeg' 
+    };
+    updateTargetSize();
+    updateSizeEstimate();
+    if (state.images.length > 0) {
+      resetCrop();
+      renderCrop();
+    }
+    showToast('已选择 ' + size.width + '×' + size.height);
+  });
+
+  // 自定义尺寸输入变化
+  const updateCustomScene = () => {
+    if (isCustomSizeLocked()) return;
+    const w = parseInt(els.customWidth.value);
+    const h = parseInt(els.customHeight.value);
+    if (w && h && w > 0 && h > 0) {
+      state.currentScene = { 
+        id: 'custom_input', name: '自定义', 
+        width: w, height: h, maxSize: null, format: 'image/jpeg' 
+      };
+      updateTargetSize();
+      updateSizeEstimate();
+      if (state.images.length > 0) {
+        resetCrop();
+        renderCrop();
+      }
+    }
+    updateExportBtn();
+  };
+  els.customWidth.addEventListener('input', updateCustomScene);
+  els.customHeight.addEventListener('input', updateCustomScene);
+
+  // 上传
+  els.uploadArea.addEventListener('click', () => els.fileInput.click());
+  els.fileInput.addEventListener('change', e => {
+    handleFiles(e.target.files);
+    e.target.value = ''; // 允许重复选择同一文件
+  });
+  
+  // 拖拽上传
+  els.uploadArea.addEventListener('dragover', e => {
+    e.preventDefault();
+    els.uploadArea.classList.add('dragover');
+  });
+  els.uploadArea.addEventListener('dragleave', () => {
+    els.uploadArea.classList.remove('dragover');
+  });
+  els.uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    els.uploadArea.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  });
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => e.preventDefault());
+
+  // AI居中按钮
+  els.aiCenterBtn.addEventListener('click', () => {
+    if (!state.userPermission.ai) {
+      showGuideModal('🤖', 'AI自动居中为会员专属功能', 'AI商品自动居中可智能识别商品主体，一键裁剪不裁歪。升级5元次卡或月度会员即可解锁此功能，告别手动调整。');
+      return;
+    }
+    if (state.images.length === 0) {
+      showToast('请先上传图片');
+      return;
+    }
+    performAICenter();
+  });
+  
+  // 重置居中
+  els.recenterBtn.addEventListener('click', () => {
+    if (state.images.length === 0) return;
+    resetCrop();
+    renderCrop();
+    showToast('已重置为居中');
+  });
+
+  // 裁剪交互
+  els.cropCanvas.addEventListener('mousedown', startDrag);
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', endDrag);
+  
+  els.cropCanvas.addEventListener('touchstart', e => {
+    const touch = e.touches[0];
+    startDrag({ clientX: touch.clientX, clientY: touch.clientY });
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!state.isDragging) return;
+    const touch = e.touches[0];
+    onDrag({ clientX: touch.clientX, clientY: touch.clientY });
+  }, { passive: true });
+  document.addEventListener('touchend', endDrag);
+
+  // 滚轮缩放
+  els.cropCanvas.addEventListener('wheel', e => {
+    if (state.images.length === 0) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newScale = Math.max(0.1, Math.min(5, state.scale * delta));
+    if (newScale !== state.scale) {
+      state.scale = newScale;
+      renderCrop();
+    }
+  }, { passive: false });
+
+  // 对比模式
+  els.compareToggle.addEventListener('change', () => {
+    state.compareMode = els.compareToggle.checked;
+    renderCrop();
+  });
+
+  // 导出设置
+  els.exportFormat.addEventListener('change', updateSizeEstimate);
+  els.qualitySlider.addEventListener('input', () => {
+    els.qualityValue.textContent = els.qualitySlider.value + '%';
+    updateSizeEstimate();
+  });
+
+  // 画质升级链接
+  els.qualityUpgrade.addEventListener('click', showUpgradeModal);
+
+  // 按钮
+  els.exportBtn.addEventListener('click', exportImages);
+  els.resetBtn.addEventListener('click', resetAll);
+
+  // FAQ折叠
+  document.querySelectorAll('.faq-question').forEach(q => {
+    q.addEventListener('click', () => {
+      q.parentElement.classList.toggle('open');
+    });
+  });
+
+  // ===== 会员系统事件 =====
+  els.activateBtn.addEventListener('click', showUpgradeModal);
+  els.adUpgradeBtn.addEventListener('click', showUpgradeModal);
+  els.goRedeemBtn.addEventListener('click', () => {
+    closeModal('upgradeModal');
+    setTimeout(() => showRedeemModal(), 200);
+  });
+  els.redeemConfirmBtn.addEventListener('click', () => {
+    activateCode(els.redeemInput.value);
+  });
+  els.redeemInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      activateCode(els.redeemInput.value);
+    }
+  });
+  els.guideUpgradeBtn.addEventListener('click', () => {
+    closeModal('guideModal');
+    setTimeout(() => showUpgradeModal(), 200);
+  });
+  
+  // 弹窗关闭
+  document.querySelectorAll('[data-close]').forEach(el => {
+    el.addEventListener('click', () => closeModal(el.dataset.close));
+  });
+  // 点击遮罩关闭
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) closeModal(overlay.id);
+    });
+  });
+  
+  // 用户徽章点击查看权益
+  els.userBadge.addEventListener('click', () => {
+    if (state.userPermission.type === 'free') {
+      showUpgradeModal();
+    } else {
+      const remain = getRemainingDays();
+      showGuideModal('⭐', state.userPermission.name + '权益', 
+        '当前身份：' + state.userPermission.name + '\n' +
+        '剩余有效期：' + remain + '天\n' +
+        '批量上传：' + (state.userPermission.batchLimit === Infinity ? '无限' : state.userPermission.batchLimit + '张') + '\n' +
+        'AI自动居中：' + (state.userPermission.ai ? '支持' : '不支持') + '\n' +
+        '画质等级：' + (state.userPermission.quality === 'lossless' ? '无损' : state.userPermission.quality === 'hd' ? '高清' : '普通') + '\n' +
+        'ZIP打包：' + (state.userPermission.zip ? '支持' : '不支持')
+      );
+    }
+  });
+  
+  // 客服微信点击复制
+  els.customerWechat.addEventListener('click', () => {
+    const text = CUSTOMER_WECHAT;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => showToast('客服微信已复制'));
+    } else {
+      // 兼容方案
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); showToast('客服微信已复制'); } catch(e) {}
+      document.body.removeChild(ta);
+    }
+  });
+}
+
+// ====================================================================
+// 处理文件上传（含权限检查）
+// ====================================================================
+function handleFiles(files) {
+  const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+  if (imageFiles.length === 0) {
+    showToast('请选择图片文件');
+    return;
+  }
+  
+  // 权限检查：批量上传限制
+  const limit = state.userPermission.batchLimit;
+  if (imageFiles.length > limit) {
+    let desc;
+    if (state.userPermission.type === 'free') {
+      desc = '免费版单次最多处理5张图片，您上传了' + imageFiles.length + '张。升级会员可解锁无限批量处理，大幅提升工作效率。';
+    } else {
+      desc = '当前套餐单次最多处理' + limit + '张图片，您上传了' + imageFiles.length + '张。升级月度会员可解锁无限批量处理。';
+    }
+    showGuideModal('📷', '上传数量超出限制', desc);
+    // 仅处理限制数量内的图片
+    imageFiles.splice(limit);
+  }
+  
+  showProgress('正在加载图片...', '已加载 0/' + imageFiles.length, 0);
+  
+  let loaded = 0;
+  const loadPromises = imageFiles.map(file => 
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          loaded++;
+          updateProgress(loaded / imageFiles.length * 100, '已加载 ' + loaded + '/' + imageFiles.length);
+          resolve({ file, img, name: file.name });
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    })
+  );
+  
+  Promise.all(loadPromises).then(images => {
+    state.images = images;
+    state.currentImageIndex = 0;
+    resetCrop();
+    renderBatchThumbs();
+    renderCrop();
+    els.uploadArea.style.display = 'none';
+    els.cropContainer.classList.add('show');
+    els.batchList.classList.add('show');
+    els.batchCount.textContent = images.length;
+    hideProgress();
+    showToast('成功加载 ' + images.length + ' 张图片');
+  }).catch(() => {
+    hideProgress();
+    showToast('图片加载失败');
+  });
+}
+
+// ====================================================================
+// AI商品自动居中算法
+// 通过分析图片像素，找到非白色/非透明主体的边界框，自动调整裁剪框居中
+// ====================================================================
+function performAICenter() {
+  if (state.images.length === 0 || !state.currentScene) return;
+  
+  showToast('🤖 正在分析图片主体...');
+  
+  setTimeout(() => {
+    try {
+      const img = state.images[state.currentImageIndex].img;
+      const scene = state.currentScene;
+      
+      // 创建临时canvas分析图片
+      const analyzeCanvas = document.createElement('canvas');
+      const aw = Math.min(img.width, 400); // 降采样以提高性能
+      const ah = Math.round(aw * img.height / img.width);
+      analyzeCanvas.width = aw;
+      analyzeCanvas.height = ah;
+      const actx = analyzeCanvas.getContext('2d');
+      actx.drawImage(img, 0, 0, aw, ah);
+      
+      const imageData = actx.getImageData(0, 0, aw, ah);
+      const data = imageData.data;
+      
+      // 找到非白色/非透明像素的边界框
+      let minX = aw, minY = ah, maxX = 0, maxY = 0;
+      let foundPixel = false;
+      
+      for (let y = 0; y < ah; y++) {
+        for (let x = 0; x < aw; x++) {
+          const idx = (y * aw + x) * 4;
+          const r = data[idx];
+          const g = data[idx + 1];
+          const b = data[idx + 2];
+          const a = data[idx + 3];
+          
+          // 判断是否为内容像素（非白色、非透明）
+          const isTransparent = a < 128;
+          const isWhite = r > 240 && g > 240 && b > 240;
+          const isLightGray = r > 235 && g > 235 && b > 235 && Math.abs(r - g) < 10 && Math.abs(g - b) < 10;
+          
+          if (!isTransparent && !isWhite && !isLightGray) {
+            foundPixel = true;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      
+      if (!foundPixel) {
+        showToast('未检测到明显主体，保持默认居中');
+        resetCrop();
+        renderCrop();
+        return;
+      }
+      
+      // 将边界框坐标转换回原图尺寸
+      const scaleX = img.width / aw;
+      const scaleY = img.height / ah;
+      
+      const subjectMinX = minX * scaleX;
+      const subjectMaxX = maxX * scaleX;
+      const subjectMinY = minY * scaleY;
+      const subjectMaxY = maxY * scaleY;
+      
+      const subjectCenterX = (subjectMinX + subjectMaxX) / 2;
+      const subjectCenterY = (subjectMinY + subjectMaxY) / 2;
+      
+      // 将裁剪框居中到主体中心
+      const targetRatio = scene.width / scene.height;
+      let cropW = state.cropWidth;
+      let cropH = state.cropHeight;
+      
+      // 确保裁剪框尺寸正确
+      if (cropW === 0 || cropH === 0) {
+        if (img.width / img.height > targetRatio) {
+          cropH = img.height;
+          cropW = cropH * targetRatio;
+        } else {
+          cropW = img.width;
+          cropH = cropW / targetRatio;
+        }
+        state.cropWidth = cropW;
+        state.cropHeight = cropH;
+      }
+      
+      // 计算新的裁剪位置，使主体居中
+      let newX = subjectCenterX - cropW / 2;
+      let newY = subjectCenterY - cropH / 2;
+      
+      // 限制不超出图片边界
+      newX = Math.max(0, Math.min(img.width - cropW, newX));
+      newY = Math.max(0, Math.min(img.height - cropH, newY));
+      
+      state.cropX = newX;
+      state.cropY = newY;
+      
+      renderCrop();
+      showToast('✅ AI已将商品主体居中');
+    } catch (e) {
+      showToast('AI分析失败，请手动调整');
+      console.error('AI Center Error:', e);
+    }
+  }, 100);
+}
+
+// ====================================================================
+// 渲染批量缩略图
+// ====================================================================
+function renderBatchThumbs() {
+  els.batchThumbs.innerHTML = state.images.map((img, i) => 
+    `<div class="batch-thumb ${i === state.currentImageIndex ? 'active' : ''}" data-index="${i}">
+      <img src="${img.img.src}" alt="">
+    </div>`
+  ).join('');
+  
+  els.batchThumbs.querySelectorAll('.batch-thumb').forEach(el => {
+    el.addEventListener('click', () => {
+      state.currentImageIndex = parseInt(el.dataset.index);
+      document.querySelectorAll('.batch-thumb').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      resetCrop();
+      renderCrop();
+    });
+  });
+}
+
+// ====================================================================
+// 重置裁剪参数
+// ====================================================================
+function resetCrop() {
+  if (!state.currentScene || state.images.length === 0) return;
+  
+  const img = state.images[state.currentImageIndex].img;
+  const scene = state.currentScene;
+  const targetRatio = scene.width / scene.height;
+  const imgRatio = img.width / img.height;
+  
+  if (imgRatio > targetRatio) {
+    state.cropHeight = img.height;
+    state.cropWidth = img.height * targetRatio;
+    state.cropX = (img.width - state.cropWidth) / 2;
+    state.cropY = 0;
+  } else {
+    state.cropWidth = img.width;
+    state.cropHeight = img.width / targetRatio;
+    state.cropX = 0;
+    state.cropY = (img.height - state.cropHeight) / 2;
+  }
+  
+  state.scale = 1;
+  updateCropInfo();
+}
+
+// ====================================================================
+// 渲染裁剪画布
+// ====================================================================
+function renderCrop() {
+  if (state.images.length === 0) return;
+  
+  const img = state.images[state.currentImageIndex].img;
+  const canvas = els.cropCanvas;
+  
+  canvas.width = img.width;
+  canvas.height = img.height;
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  if (state.compareMode) {
+    ctx.drawImage(img, 0, 0);
+    ctx.strokeStyle = '#1677ff';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(state.cropX, state.cropY, state.cropWidth, state.cropHeight);
+    ctx.fillStyle = 'rgba(22, 119, 255, 0.1)';
+    ctx.fillRect(state.cropX, state.cropY, state.cropWidth, state.cropHeight);
+    ctx.fillStyle = 'rgba(22, 119, 255, 0.8)';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText('裁剪区域', state.cropX + 10, state.cropY + 34);
+  } else {
+    ctx.drawImage(img, state.cropX, state.cropY, state.cropWidth, state.cropHeight, 0, 0, canvas.width, canvas.height);
+  }
+  
+  updateCropInfo();
+}
+
+// 拖拽裁剪
+function startDrag(e) {
+  if (state.images.length === 0) return;
+  const rect = els.cropCanvas.getBoundingClientRect();
+  state.displayScale = els.cropCanvas.width / rect.width;
+  state.isDragging = true;
+  state.dragStartX = e.clientX;
+  state.dragStartY = e.clientY;
+  state.cropStartX = state.cropX;
+  state.cropStartY = state.cropY;
+}
+
+function onDrag(e) {
+  if (!state.isDragging) return;
+  const dx = (e.clientX - state.dragStartX) * state.displayScale;
+  const dy = (e.clientY - state.dragStartY) * state.displayScale;
+  const img = state.images[state.currentImageIndex].img;
+  let newX = state.cropStartX + dx;
+  let newY = state.cropStartY + dy;
+  newX = Math.max(0, Math.min(img.width - state.cropWidth, newX));
+  newY = Math.max(0, Math.min(img.height - state.cropHeight, newY));
+  state.cropX = newX;
+  state.cropY = newY;
+  renderCrop();
+}
+
+function endDrag() { state.isDragging = false; }
+
+function updateCropInfo() {
+  if (!state.currentScene) return;
+  els.targetSize.textContent = state.currentScene.width + '×' + state.currentScene.height + 'px';
+  els.cropPos.textContent = Math.round(state.cropX) + ', ' + Math.round(state.cropY);
+  els.zoomLevel.textContent = Math.round(state.scale * 100) + '%';
+  updateSizeEstimate();
+  updateExportBtn();
+}
+
+function updateTargetSize() {
+  if (!state.currentScene) { els.targetSize.textContent = '--'; return; }
+  els.targetSize.textContent = state.currentScene.width + '×' + state.currentScene.height + 'px';
+}
+
+function updateExportFormatDefault() {
+  if (state.currentScene && state.currentScene.format) {
+    els.exportFormat.value = state.currentScene.format;
+  }
+}
+
+function updateSizeEstimate() {
+  if (!state.currentScene || state.images.length === 0) {
+    els.sizeEstimate.textContent = '预估文件大小：--';
+    return;
+  }
+  const scene = state.currentScene;
+  const quality = els.qualitySlider.value / 100;
+  const format = els.exportFormat.value;
+  const pixels = scene.width * scene.height;
+  let bytesPerPixel;
+  if (format === 'image/jpeg') bytesPerPixel = 0.3 * quality + 0.05;
+  else if (format === 'image/png') bytesPerPixel = 1.5;
+  else bytesPerPixel = 0.2 * quality + 0.03;
+  const estKB = Math.round(pixels * bytesPerPixel / 1024);
+  let text = '预估文件大小：约 ' + estKB + ' KB';
+  if (scene.maxSize && estKB > scene.maxSize) {
+    text += ' <span class="warn">(超出限制 ' + scene.maxSize + 'KB，导出时将自动压缩)</span>';
+  } else if (scene.maxSize) {
+    text += ' (限制 ≤' + scene.maxSize + 'KB)';
+  }
+  els.sizeEstimate.innerHTML = text;
+}
+
+function updateExportBtn() {
+  const hasImage = state.images.length > 0;
+  const hasScene = state.currentScene !== null;
+  els.exportBtn.disabled = !(hasImage && hasScene);
+  
+  // 更新导出按钮下方的画质标注
+  const perm = state.userPermission;
+  if (hasImage && hasScene) {
+    if (perm.quality === 'lossless') {
+      els.exportNote.innerHTML = '当前为<span style="color:#1677ff;font-weight:500">无损画质</span>导出';
+    } else if (perm.quality === 'hd') {
+      els.exportNote.innerHTML = '当前为<span style="color:#52c41a;font-weight:500">高清画质</span>导出';
+    } else {
+      els.exportNote.innerHTML = '<span class="free-tag">免费版普通画质</span> · <a class="upgrade-inline" id="exportUpgradeLink">升级解锁无损</a>';
+      setTimeout(() => {
+        const link = document.getElementById('exportUpgradeLink');
+        if (link) link.addEventListener('click', showUpgradeModal);
+      }, 0);
+    }
+  } else {
+    els.exportNote.innerHTML = '';
+  }
+}
+
+// ====================================================================
+// 导出图片（含权限检查）
+// ====================================================================
+function exportImages() {
+  if (state.images.length === 0 || !state.currentScene) return;
+  
+  const format = els.exportFormat.value;
+  const quality = els.qualitySlider.value / 100;
+  const scene = state.currentScene;
+  const perm = state.userPermission;
+  
+  // 权限检查：批量ZIP打包
+  if (state.images.length > 1 && !perm.zip) {
+    showGuideModal('📦', '批量ZIP打包为会员功能', '免费用户只能单张依次下载。升级会员后支持批量导出自动打包为ZIP，一键下载所有处理好的图片，大幅提升效率。');
+    return;
+  }
+  
+  if (state.images.length === 1) {
+    showProgress('正在处理...', '正在生成图片', 30);
+    setTimeout(() => {
+      processImage(state.images[0], scene, format, quality, perm).then(blob => {
+        updateProgress(100, '处理完成');
+        setTimeout(() => {
+          hideProgress();
+          downloadBlob(blob, getExportFileName(state.images[0].name, scene));
+          showToast('导出成功');
+        }, 300);
+      }).catch(() => {
+        hideProgress();
+        showToast('导出失败');
+      });
+    }, 100);
+  } else {
+    if (typeof JSZip === 'undefined') {
+      showToast('ZIP库加载失败，请检查网络后刷新页面重试');
+      return;
+    }
+    
+    showProgress('正在批量处理...', '已处理 0/' + state.images.length + ' 张', 0);
+    const zip = new JSZip();
+    let processed = 0;
+    
+    const processNext = async () => {
+      if (processed >= state.images.length) {
+        updateProgress(90, '正在生成ZIP文件...');
+        const content = await zip.generateAsync({ type: 'blob' });
+        updateProgress(100, '处理完成');
+        setTimeout(() => {
+          hideProgress();
+          downloadBlob(content, '电商图片_' + scene.width + 'x' + scene.height + '.zip');
+          showToast('批量导出成功，共 ' + state.images.length + ' 张');
+        }, 300);
+        return;
+      }
+      const imgData = state.images[processed];
+      const blob = await processImage(imgData, scene, format, quality, perm);
+      zip.file(getExportFileName(imgData.name, scene), blob);
+      processed++;
+      updateProgress(processed / state.images.length * 80, '已处理 ' + processed + '/' + state.images.length + ' 张');
+      setTimeout(processNext, 10);
+    };
+    processNext();
+  }
+}
+
+// 处理单张图片（根据权限应用画质限制）
+function processImage(imgData, scene, format, requestedQuality, perm) {
+  return new Promise((resolve, reject) => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = scene.width;
+      canvas.height = scene.height;
+      const c = canvas.getContext('2d');
+      const img = imgData.img;
+      c.drawImage(img, state.cropX, state.cropY, state.cropWidth, state.cropHeight, 0, 0, scene.width, scene.height);
+      
+      // 根据权限确定实际画质
+      let actualQuality = requestedQuality;
+      if (perm.quality === 'lossless') {
+        actualQuality = 1.0;  // 无损
+      } else if (perm.quality === 'hd') {
+        actualQuality = Math.max(requestedQuality, 0.6);  // 高清最低60%
+      } else {
+        // 免费用户限制最高80%
+        actualQuality = Math.min(requestedQuality, 0.8);
+      }
+      
+      compressCanvasToSize(canvas, format, actualQuality, scene.maxSize).then(resolve).catch(reject);
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+// 压缩到指定大小（二分法）
+function compressCanvasToSize(canvas, format, initialQuality, maxSizeKB) {
+  return new Promise((resolve, reject) => {
+    let quality = initialQuality;
+    let minQ = 0.1;
+    let maxQ = quality;
+    let attempts = 0;
+    const maxAttempts = 10;
+    const tryCompress = () => {
+      canvas.toBlob(blob => {
+        if (!blob) { reject(new Error('导出失败')); return; }
+        const sizeKB = blob.size / 1024;
+        if (!maxSizeKB || sizeKB <= maxSizeKB || attempts >= maxAttempts || quality <= 0.1) {
+          resolve(blob);
+          return;
+        }
+        attempts++;
+        if (sizeKB > maxSizeKB) { maxQ = quality; quality = (minQ + maxQ) / 2; }
+        else { minQ = quality; quality = (minQ + maxQ) / 2; }
+        tryCompress();
+      }, format, quality);
+    };
+    tryCompress();
+  });
+}
+
+function getExportFileName(originalName, scene) {
+  const extMap = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
+  const ext = extMap[els.exportFormat.value] || '.jpg';
+  const baseName = originalName.replace(/\.[^.]+$/, '');
+  return baseName + '_' + scene.width + 'x' + scene.height + ext;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function resetAll() {
+  state.images = [];
+  state.currentImageIndex = 0;
+  state.cropX = 0; state.cropY = 0;
+  state.cropWidth = 0; state.cropHeight = 0;
+  state.scale = 1;
+  state.compareMode = false;
+  els.compareToggle.checked = false;
+  els.fileInput.value = '';
+  els.uploadArea.style.display = '';
+  els.cropContainer.classList.remove('show');
+  els.batchList.classList.remove('show');
+  els.targetSize.textContent = state.currentScene ? state.currentScene.width + '×' + state.currentScene.height + 'px' : '--';
+  els.cropPos.textContent = '--';
+  els.zoomLevel.textContent = '100%';
+  updateExportBtn();
+  showToast('已重置');
+}
+
+// ====================================================================
+// 进度条 & Toast
+// ====================================================================
+function showProgress(title, desc, percent) {
+  els.progressTitle.textContent = title;
+  els.progressDesc.textContent = desc;
+  els.progressFill.style.width = percent + '%';
+  els.progressOverlay.classList.add('show');
+}
+function updateProgress(percent, desc) {
+  els.progressFill.style.width = percent + '%';
+  if (desc) els.progressDesc.textContent = desc;
+}
+function hideProgress() { els.progressOverlay.classList.remove('show'); }
+
+let toastTimer;
+function showToast(msg) {
+  els.toast.textContent = msg;
+  els.toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { els.toast.classList.remove('show'); }, 2800);
+}
+
+// ====================================================================
+// ===== 弹窗管理 =====
+// ====================================================================
+function showModal(id) { $(id).classList.add('show'); }
+function closeModal(id) { $(id).classList.remove('show'); }
+
+function showUpgradeModal() {
+  showModal('upgradeModal');
+}
+
+function showRedeemModal() {
+  els.redeemInput.value = '';
+  showModal('redeemModal');
+  setTimeout(() => els.redeemInput.focus(), 200);
+}
+
+function showGuideModal(icon, title, desc) {
+  els.guideIcon.textContent = icon;
+  els.guideTitle.textContent = title;
+  els.guideDesc.textContent = desc;
+  showModal('guideModal');
+}
+
+// ====================================================================
+// 启动
+// ====================================================================
+init();
+</script>
+</body>
+</html>
